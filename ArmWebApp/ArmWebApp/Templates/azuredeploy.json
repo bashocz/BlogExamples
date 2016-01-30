@@ -27,6 +27,7 @@
         }
     },
     "variables": {
+        "ArmWebAppName": "[concat('ArmWebApp', uniqueString(resourceGroup().id))]"
     },
     "resources": [
         {
@@ -43,6 +44,23 @@
                 "sku": "[parameters('ArmAppServicePlanSKU')]",
                 "workerSize": "[parameters('ArmAppServicePlanWorkerSize')]",
                 "numberOfWorkers": 1
+            }
+        },
+        {
+            "name": "[variables('ArmWebAppName')]",
+            "type": "Microsoft.Web/sites",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-08-01",
+            "dependsOn": [
+                "[concat('Microsoft.Web/serverfarms/', parameters('ArmAppServicePlanName'))]"
+            ],
+            "tags": {
+                "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('ArmAppServicePlanName'))]": "Resource",
+                "displayName": "ArmWebApp"
+            },
+            "properties": {
+                "name": "[variables('ArmWebAppName')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms/', parameters('ArmAppServicePlanName'))]"
             }
         }
     ],
