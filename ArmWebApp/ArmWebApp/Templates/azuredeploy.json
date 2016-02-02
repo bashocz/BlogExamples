@@ -2,11 +2,11 @@
     "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "ArmAppServicePlanName": {
+        "armAppServicePlanName": {
             "type": "string",
             "minLength": 1
         },
-        "ArmAppServicePlanSKU": {
+        "armAppServicePlanSKU": {
             "type": "string",
             "allowedValues": [
                 "Free",
@@ -16,7 +16,7 @@
             ],
             "defaultValue": "Free"
         },
-        "ArmAppServicePlanWorkerSize": {
+        "armAppServicePlanWorkerSize": {
             "type": "string",
             "allowedValues": [
                 "0",
@@ -24,45 +24,137 @@
                 "2"
             ],
             "defaultValue": "0"
+        },
+        "sqlserverAdminLogin": {
+            "type": "string",
+            "minLength": 1
+        },
+        "sqlserverAdminLoginPassword": {
+            "type": "securestring"
+        },
+        "armDatabaseName": {
+            "type": "string",
+            "minLength": 1
+        },
+        "armDatabaseCollation": {
+            "type": "string",
+            "minLength": 1,
+            "defaultValue": "SQL_Latin1_General_CP1_CI_AS"
+        },
+        "armDatabaseEdition": {
+            "type": "string",
+            "defaultValue": "Basic",
+            "allowedValues": [
+                "Basic",
+                "Standard",
+                "Premium"
+            ]
+        },
+        "armDatabaseRequestedServiceObjectiveName": {
+            "type": "string",
+            "defaultValue": "Basic",
+            "allowedValues": [
+                "Basic",
+                "S0",
+                "S1",
+                "S2",
+                "P1",
+                "P2",
+                "P3"
+            ],
+            "metadata": {
+                "description": "Describes the performance level for Edition"
+            }
         }
+        
     },
     "variables": {
-        "ArmWebAppName": "[concat('ArmWebApp', uniqueString(resourceGroup().id))]"
+        "armWebAppName": "[concat('armWebApp', uniqueString(resourceGroup().id))]",
+        "sqlserverName": "[concat('sqlserver', uniqueString(resourceGroup().id))]"
+        
     },
     "resources": [
         {
-            "name": "[parameters('ArmAppServicePlanName')]",
+            "name": "[parameters('armAppServicePlanName')]",
             "type": "Microsoft.Web/serverfarms",
             "location": "[resourceGroup().location]",
             "apiVersion": "2014-06-01",
             "dependsOn": [ ],
             "tags": {
-                "displayName": "ArmAppServicePlan"
+                "displayName": "armAppServicePlan"
             },
             "properties": {
-                "name": "[parameters('ArmAppServicePlanName')]",
-                "sku": "[parameters('ArmAppServicePlanSKU')]",
-                "workerSize": "[parameters('ArmAppServicePlanWorkerSize')]",
+                "name": "[parameters('armAppServicePlanName')]",
+                "sku": "[parameters('armAppServicePlanSKU')]",
+                "workerSize": "[parameters('armAppServicePlanWorkerSize')]",
                 "numberOfWorkers": 1
             }
         },
         {
-            "name": "[variables('ArmWebAppName')]",
+            "name": "[variables('armWebAppName')]",
             "type": "Microsoft.Web/sites",
             "location": "[resourceGroup().location]",
             "apiVersion": "2015-08-01",
             "dependsOn": [
-                "[concat('Microsoft.Web/serverfarms/', parameters('ArmAppServicePlanName'))]"
+                "[concat('Microsoft.Web/serverfarms/', parameters('armAppServicePlanName'))]"
             ],
             "tags": {
-                "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('ArmAppServicePlanName'))]": "Resource",
-                "displayName": "ArmWebApp"
+                "[concat('hidden-related:', resourceGroup().id, '/providers/Microsoft.Web/serverfarms/', parameters('armAppServicePlanName'))]": "Resource",
+                "displayName": "armWebApp"
             },
             "properties": {
-                "name": "[variables('ArmWebAppName')]",
-                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms/', parameters('ArmAppServicePlanName'))]"
+                "name": "[variables('armWebAppName')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms/', parameters('armAppServicePlanName'))]"
             }
+        },
+        {
+            "name": "[variables('sqlserverName')]",
+            "type": "Microsoft.Sql/servers",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2014-04-01-preview",
+            "dependsOn": [ ],
+            "tags": {
+                "displayName": "sqlserver"
+            },
+            "properties": {
+                "administratorLogin": "[parameters('sqlserverAdminLogin')]",
+                "administratorLoginPassword": "[parameters('sqlserverAdminLoginPassword')]"
+            },
+            "resources": [
+                {
+                    "name": "AllowAllWindowsAzureIps",
+                    "type": "firewallrules",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2014-04-01-preview",
+                    "dependsOn": [
+                        "[concat('Microsoft.Sql/servers/', variables('sqlserverName'))]"
+                    ],
+                    "properties": {
+                        "startIpAddress": "0.0.0.0",
+                        "endIpAddress": "0.0.0.0"
+                    }
+                },
+                {
+                    "name": "[parameters('armDatabaseName')]",
+                    "type": "databases",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2014-04-01-preview",
+                    "dependsOn": [
+                        "[variables('sqlserverName')]"
+                    ],
+                    "tags": {
+                        "displayName": "armDatabase"
+                    },
+                    "properties": {
+                        "collation": "[parameters('armDatabaseCollation')]",
+                        "edition": "[parameters('armDatabaseEdition')]",
+                        "maxSizeBytes": "1073741824",
+                        "requestedServiceObjectiveName": "[parameters('armDatabaseRequestedServiceObjectiveName')]"
+                    }
+                }
+            ]
         }
+        
     ],
     "outputs": {
     }
